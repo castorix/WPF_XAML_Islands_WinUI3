@@ -22,16 +22,21 @@ using WinRT;
 // Turn off  "Enable in-app Toolbar" 
 // https://github.com/microsoft/microsoft-ui-xaml/issues/8806
 
+// https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/advanced-scenarios-xaml-islands-cpp
+
 namespace WPF_XAML_Islands_WinUI3
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
-    {  
+    {
+        public const int WM_DPICHANGED = 0x02E0;
+
         public Microsoft.UI.Xaml.Hosting.DesktopWindowXamlSource? m_dwxs = null;
 
         public IntPtr m_hWnd = IntPtr.Zero;
+        public int m_nXPos = 382, m_nYPos = 20, m_nWidth = 700, m_nHeight = 600;
 
         public MainWindow()
         {
@@ -48,9 +53,11 @@ namespace WPF_XAML_Islands_WinUI3
                 m_dwxs = new Microsoft.UI.Xaml.Hosting.DesktopWindowXamlSource();
                 Microsoft.UI.WindowId myWndId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(m_hWnd);
                 m_dwxs.Initialize(myWndId);
-                var sb = m_dwxs.SiteBridge;
-                Windows.Graphics.RectInt32 rect = new Windows.Graphics.RectInt32(382, 20, 700, 600);
-                sb.MoveAndResize(rect);                
+                var sb = m_dwxs.SiteBridge;              
+                var csv = sb.SiteView;
+                var rs = csv.RasterizationScale;
+                Windows.Graphics.RectInt32 rect = new Windows.Graphics.RectInt32((int)(m_nXPos * rs), (int)(m_nYPos * rs), (int)(m_nWidth * rs), (int)(m_nHeight * rs));
+                sb.MoveAndResize(rect);
             }
             string sText = @"  <Grid xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
                     xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
@@ -59,7 +66,9 @@ namespace WPF_XAML_Islands_WinUI3
                     <controls:ColorPicker x:Name='cp1' IsAlphaEnabled='False' IsMoreButtonVisible='True' Margin='0,10,0,0'>
                     </controls:ColorPicker>
             </Grid>";
-            var textRange = new TextRange(rtb1.Document.ContentStart, rtb1.Document.ContentEnd) { Text = sText };          
+            var textRange = new TextRange(rtb1.Document.ContentStart, rtb1.Document.ContentEnd) { Text = sText };
+
+            HwndSource.FromHwnd(m_hWnd)?.AddHook(WndProc);
         }  
 
         private void btn1_Click(object sender, RoutedEventArgs e)
@@ -72,8 +81,9 @@ namespace WPF_XAML_Islands_WinUI3
             gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(100, Microsoft.UI.Xaml.GridUnitType.Pixel) });
             //gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(40, Microsoft.UI.Xaml.GridUnitType.Pixel) });
             gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(250, Microsoft.UI.Xaml.GridUnitType.Pixel) });
+            gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(80, Microsoft.UI.Xaml.GridUnitType.Pixel) });
             gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(1, Microsoft.UI.Xaml.GridUnitType.Star) });
-            gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(100, Microsoft.UI.Xaml.GridUnitType.Pixel) });
+            //gridRoot.RowDefinitions.Add(new Microsoft.UI.Xaml.Controls.RowDefinition() { Height = new Microsoft.UI.Xaml.GridLength(80, Microsoft.UI.Xaml.GridUnitType.Pixel) });
             //gridRoot.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
 
             Microsoft.UI.Xaml.Controls.CalendarDatePicker cdp = new Microsoft.UI.Xaml.Controls.CalendarDatePicker()
@@ -273,6 +283,7 @@ namespace WPF_XAML_Islands_WinUI3
             Microsoft.UI.Xaml.Controls.StackPanel sp2 = new Microsoft.UI.Xaml.Controls.StackPanel()
             {
                 Orientation = Microsoft.UI.Xaml.Controls.Orientation.Horizontal,
+                VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
                 Children =
                 {
                     (ts = new Microsoft.UI.Xaml.Controls.ToggleSwitch
@@ -282,7 +293,7 @@ namespace WPF_XAML_Islands_WinUI3
                         OnContent = "Working",
                         VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
                         //HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Center,
-                        Margin = new Microsoft.UI.Xaml.Thickness(180, 15, 0, 0),
+                        Margin = new Microsoft.UI.Xaml.Thickness(180, 0, 0, 0),
                         IsOn = false
                     }),
                     (pg = new Microsoft.UI.Xaml.Controls.ProgressRing
@@ -291,7 +302,7 @@ namespace WPF_XAML_Islands_WinUI3
                         Height = 50,
                         VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Top,
                         //HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Center,
-                        Margin = new Microsoft.UI.Xaml.Thickness(100, 15, 0, 0),
+                        Margin = new Microsoft.UI.Xaml.Thickness(100, 0, 0, 0),
                         IsActive = false
                     })
                 }
@@ -397,6 +408,19 @@ namespace WPF_XAML_Islands_WinUI3
                 }
             }
             return null;
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_DPICHANGED)
+            {
+                var sb = m_dwxs.SiteBridge;
+                var csv = sb.SiteView;
+                var rs = csv.RasterizationScale;
+                Windows.Graphics.RectInt32 rect = new Windows.Graphics.RectInt32((int)(m_nXPos * rs), (int)(m_nYPos * rs), (int)(m_nWidth * rs), (int)(m_nHeight * rs));
+                sb.MoveAndResize(rect);
+            }
+            return IntPtr.Zero;
         }
     }
 }

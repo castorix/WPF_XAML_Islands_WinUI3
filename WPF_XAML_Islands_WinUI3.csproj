@@ -13,6 +13,7 @@
     <StartupObject>WPF_XAML_Islands_WinUI3.Program</StartupObject>
     <SupportedOSPlatformVersion>10.0.20348.0</SupportedOSPlatformVersion>
     <Platforms>AnyCPU;x86</Platforms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
